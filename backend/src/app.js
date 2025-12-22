@@ -4,6 +4,10 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 require('dotenv').config();
 
+// Import database dan migrasi
+const db = require('./config/database');
+const runMigrations = require('./config/migrate');
+
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const leadRoutes = require('./routes/leadRoutes');
@@ -13,6 +17,17 @@ const customerRoutes = require('./routes/customerRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 
 const app = express();
+
+// Auto-run migrations on startup
+async function initializeDatabase() {
+  try {
+    console.log('🔄 Running database migrations...');
+    await runMigrations();
+    console.log('✅ Database migrations completed');
+  } catch (error) {
+    console.error('❌ Database migration failed:', error);
+  }
+}
 
 // CORS Configuration for Railway
 const corsOptions = {
@@ -37,7 +52,7 @@ const corsOptions = {
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -68,8 +83,15 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Start server setelah database siap
+async function startServer() {
+  await initializeDatabase();
+  
+  app.listen(PORT, () => {
+    console.log(`✅ Server running on port ${PORT}`);
+  });
+}
+
+startServer().catch(console.error);
 
 module.exports = app;

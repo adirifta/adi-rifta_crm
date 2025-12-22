@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authAPI } from '@/lib/api';
 import { toast } from 'react-toastify';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, Loader2 } from 'lucide-react';
+import { isAuthenticated } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,6 +16,22 @@ export default function LoginPage() {
     password: 'password123',
   });
 
+  // Redirect jika sudah login
+useEffect(() => {
+  const checkRedirect = () => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    
+    if (token && user) {
+      console.log('Already logged in, redirecting...');
+      router.push('/dashboard');
+      router.refresh();
+    }
+  };
+  
+  checkRedirect();
+}, [router]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -22,17 +39,26 @@ export default function LoginPage() {
     try {
       const response = await authAPI.login(formData);
       
-      // Simpan token dan user data ke localStorage
+      // Simpan token dan user data
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       
-      toast.success('Login successful!');
+      toast.success('Login successful! Redirecting...', {
+        position: "top-center",
+        autoClose: 1000,
+      });
       
-      // Redirect ke dashboard menggunakan window.location untuk refresh state
-      window.location.href = '/dashboard';
+      // Tunggu sebentar sebelum redirect
+      setTimeout(() => {
+        router.push('/dashboard');
+        router.refresh(); // Paksa refresh untuk update layout
+      }, 1000);
       
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Login failed. Please check your credentials.');
+      console.error('Login error:', error);
+      toast.error(error.response?.data?.error || 'Login failed. Please check your credentials.', {
+        position: "top-center",
+      });
     } finally {
       setLoading(false);
     }
@@ -45,53 +71,136 @@ export default function LoginPage() {
     });
   };
 
-  const demoAccounts = [
-    { email: 'manager@smart.com', password: 'password123', label: 'Manager' },
-    { email: 'sales@smart.com', password: 'password123', label: 'Sales' },
-  ];
-
-  if (!isMounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader className="h-8 w-8 animate-spin text-primary-600" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
-        {/* ... kode UI login tetap sama, pastikan tombol demo account berfungsi ... */}
-        
-        {/* Demo Accounts */}
-        <div className="mt-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Demo Accounts</span>
-            </div>
+        <div className="text-center mb-8">
+          <div className="mx-auto h-12 w-12 rounded-lg bg-primary-600 flex items-center justify-center">
+            <Lock className="h-6 w-6 text-white" />
           </div>
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+            PT. Smart CRM
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Internet Service Provider Customer Relationship Management
+          </p>
+        </div>
 
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {demoAccounts.map((account, index) => (
+        <div className="bg-white rounded-2xl shadow-xl p-8">
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="pl-10 input-field"
+                  placeholder="you@company.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  className="pl-10 pr-10 input-field"
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={loading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div>
               <button
-                key={index}
-                onClick={() => {
-                  setFormData({
-                    email: account.email,
-                    password: account.password
-                  });
-                  toast.info(`${account.label} account loaded`);
-                }}
-                className="w-full flex flex-col items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                type="submit"
+                disabled={loading}
+                className="w-full btn-primary py-3 text-base font-medium flex items-center justify-center"
               >
-                <span className="font-medium">{account.label}</span>
-                <span className="text-xs text-gray-500 mt-1">{account.email}</span>
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign in'
+                )}
               </button>
-            ))}
+            </div>
+          </form>
+
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Demo Accounts</span>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setFormData({
+                  email: 'manager@smart.com',
+                  password: 'password123'
+                })}
+                disabled={loading}
+                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              >
+                Manager Account
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({
+                  email: 'sales@smart.com',
+                  password: 'password123'
+                })}
+                disabled={loading}
+                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              >
+                Sales Account
+              </button>
+            </div>
           </div>
+        </div>
+
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-600">
+            PT. Smart CRM © {new Date().getFullYear()}. All rights reserved.
+          </p>
         </div>
       </div>
     </div>

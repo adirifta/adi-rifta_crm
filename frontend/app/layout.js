@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { isAuthenticated, getUserRole, logout } from '@/lib/auth';
+import { getUserRole, logout, isAuthenticated, getUser } from '@/lib/auth';
 import './globals.css';
 
 const navigation = [
@@ -36,42 +36,34 @@ export default function RootLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [user, setUser] = useState(null);
-  const [isAuth, setIsAuth] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isAuth, setIsAuth] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    // Cek authentication hanya di client side
+    console.log('Layout mounted, pathname:', pathname);
+    
+    // Check authentication on mount and pathname change
     const checkAuth = () => {
-      const auth = isAuthenticated();
-      const role = getUserRole();
-      const userStr = localStorage.getItem('user');
+      const authStatus = isAuthenticated();
+      console.log('Auth status:', authStatus);
+      setIsAuth(authStatus);
       
-      setIsAuth(auth);
-      setUserRole(role);
-      
-      if (userStr) {
-        try {
-          setUser(JSON.parse(userStr));
-        } catch (error) {
-          console.error('Error parsing user data:', error);
-        }
-      }
-      
-      setLoading(false);
-      
-      // Jika tidak authenticated dan bukan di halaman login/register, redirect ke login
-      if (!auth && !['/login', '/register'].includes(pathname)) {
+      if (!authStatus && !['/login', '/register'].includes(pathname)) {
+        console.log('Not authenticated, redirecting to login');
         router.push('/login');
+        return;
       }
       
-      // Jika sudah authenticated dan di halaman login/register, redirect ke dashboard
-      if (auth && ['/login', '/register'].includes(pathname)) {
-        router.push('/dashboard');
+      if (authStatus) {
+        const role = getUserRole();
+        const userData = getUser();
+        console.log('User role:', role, 'User data:', userData);
+        setUserRole(role);
+        setUser(userData);
       }
     };
     
@@ -102,37 +94,30 @@ export default function RootLayout({ children }) {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Tampilkan loading spinner saat checking auth
-  if (loading) {
-    return (
-      <html lang="en">
-        <body className="bg-gray-50">
-          <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading...</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    );
-  }
-
   // Jika di halaman login/register, render tanpa layout
   if (['/login', '/register'].includes(pathname)) {
     return (
       <html lang="en">
         <body>
           {children}
-          <ToastContainer position="top-right" autoClose={3000} />
+          <ToastContainer position="top-center" autoClose={3000} />
         </body>
       </html>
     );
   }
 
-  // Jika tidak authenticated, redirect sudah dihandle di useEffect
+  // Jika tidak authenticated, tampilkan loading atau redirect
   if (!isAuth) {
-    return null; // atau loading spinner
+    return (
+      <html lang="en">
+        <body className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </body>
+      </html>
+    );
   }
 
   return (
@@ -255,7 +240,6 @@ export default function RootLayout({ children }) {
                       <div className="absolute right-0 bottom-full mb-2 w-48 rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5">
                         <Link
                           href="/profile"
-                          prefetch={false}
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                           onClick={() => setShowUserMenu(false)}
                         >
@@ -264,7 +248,6 @@ export default function RootLayout({ children }) {
                         </Link>
                         <Link
                           href="/settings"
-                          prefetch={false}
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                           onClick={() => setShowUserMenu(false)}
                         >
@@ -371,7 +354,6 @@ export default function RootLayout({ children }) {
                         </div>
                         <Link
                           href="/profile"
-                          prefetch={false}
                           className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                           onClick={() => setShowUserMenu(false)}
                         >
@@ -402,7 +384,7 @@ export default function RootLayout({ children }) {
         </div>
         
         <ToastContainer 
-          position="top-right"
+          position="top-center"
           autoClose={3000}
           hideProgressBar={false}
           newestOnTop
