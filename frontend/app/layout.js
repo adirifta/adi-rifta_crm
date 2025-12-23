@@ -39,35 +39,53 @@ export default function RootLayout({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [isAuth, setIsAuth] = useState(false);
+  const [isAuth, setIsAuth] = useState(null); // Ubah ke null untuk state loading
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    console.log('Layout mounted, pathname:', pathname);
-    
-    // Check authentication on mount and pathname change
     const checkAuth = () => {
+      console.log('Layout - Checking authentication for path:', pathname);
       const authStatus = isAuthenticated();
-      console.log('Auth status:', authStatus);
-      setIsAuth(authStatus);
+      console.log('Layout - Auth status:', authStatus);
       
-      if (!authStatus && !['/login', '/register'].includes(pathname)) {
-        console.log('Not authenticated, redirecting to login');
-        router.push('/login');
+      if (!authStatus) {
+        console.log('Layout - Not authenticated');
+        setIsAuth(false);
+        
+        // Hanya redirect jika bukan halaman login/register
+        if (!['/login', '/register'].includes(pathname)) {
+          console.log('Layout - Redirecting to login');
+          router.push('/login');
+        }
         return;
       }
       
-      if (authStatus) {
-        const role = getUserRole();
-        const userData = getUser();
-        console.log('User role:', role, 'User data:', userData);
-        setUserRole(role);
-        setUser(userData);
+      console.log('Layout - User authenticated');
+      setIsAuth(true);
+      
+      // Load user data jika authenticated
+      const role = getUserRole();
+      const userData = getUser();
+      console.log('Layout - User role:', role, 'User data:', userData);
+      setUserRole(role);
+      setUser(userData);
+      
+      // Redirect jika di halaman login/register tapi sudah login
+      if (['/login', '/register'].includes(pathname)) {
+        console.log('Layout - Already logged in, redirecting to dashboard');
+        router.push('/dashboard');
       }
     };
     
     checkAuth();
+    
+    // Listen untuk storage changes (login/logout dari tab/window lain)
+    const handleStorageChange = () => {
+      checkAuth();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
     
     // Simulate notifications
     setNotifications([
@@ -75,11 +93,16 @@ export default function RootLayout({ children }) {
       { id: 2, title: 'Project approved', message: 'Your project has been approved by manager', time: '1 hour ago', read: false },
       { id: 3, title: 'Meeting reminder', message: 'Client meeting scheduled for tomorrow', time: '3 hours ago', read: true },
     ]);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [pathname, router]);
 
   const handleLogout = () => {
     logout();
     toast.success('Logged out successfully');
+    router.push('/login');
   };
 
   const isActive = (href) => {
@@ -106,14 +129,28 @@ export default function RootLayout({ children }) {
     );
   }
 
-  // Jika tidak authenticated, tampilkan loading atau redirect
-  if (!isAuth) {
+  // Tampilkan loading selama pengecekan auth
+  if (isAuth === null) {
     return (
       <html lang="en">
         <body className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </body>
+      </html>
+    );
+  }
+
+  // Jika tidak authenticated, redirect sudah dilakukan di useEffect
+  if (isAuth === false) {
+    return (
+      <html lang="en">
+        <body className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Redirecting to login...</p>
           </div>
         </body>
       </html>
