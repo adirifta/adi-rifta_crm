@@ -27,7 +27,7 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:5000',
-      'https://*.vercel.app',
+      'https://adi-rifta-crm.vercel.app',
       'https://*.railway.app',
       process.env.FRONTEND_URL
     ].filter(Boolean);
