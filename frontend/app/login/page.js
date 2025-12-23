@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { authAPI } from '@/lib/api';
 import { toast } from 'react-toastify';
 import { Eye, EyeOff, Mail, Lock, Loader2 } from 'lucide-react';
-import { isAuthenticated } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,49 +15,83 @@ export default function LoginPage() {
     password: 'password123',
   });
 
-  // Redirect jika sudah login
-useEffect(() => {
-  const checkRedirect = () => {
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
+  // Check if already logged in
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      
+      if (token && user) {
+        console.log('User already authenticated, redirecting to dashboard');
+        router.push('/dashboard');
+      }
+    };
     
-    if (token && user) {
-      console.log('Already logged in, redirecting...');
-      router.push('/dashboard');
-      router.refresh();
-    }
-  };
-  
-  checkRedirect();
-}, [router]);
+    checkAuth();
+  }, [router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validasi email
+    if (!formData.email || !formData.email.includes('@')) {
+      toast.error('Please enter a valid email address', {
+        position: "top-center",
+      });
+      return;
+    }
+    
+    // Validasi password
+    if (!formData.password || formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters', {
+        position: "top-center",
+      });
+      return;
+    }
+    
     setLoading(true);
-
+    
     try {
-      const response = await authAPI.login(formData);
+      console.log('Attempting login with:', { email: formData.email });
       
-      // Simpan token dan user data
+      const response = await authAPI.login(formData);
+      console.log('Login response:', response.data);
+      
+      // Simpan data ke localStorage
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       
-      toast.success('Login successful! Redirecting...', {
+      toast.success('Login successful!', {
         position: "top-center",
         autoClose: 1000,
       });
       
-      // Tunggu sebentar sebelum redirect
-      setTimeout(() => {
-        router.push('/dashboard');
-        router.refresh(); // Paksa refresh untuk update layout
-      }, 1000);
+      // Redirect langsung tanpa setTimeout
+      router.push('/dashboard');
       
     } catch (error) {
-      console.error('Login error:', error);
-      toast.error(error.response?.data?.error || 'Login failed. Please check your credentials.', {
+      console.error('Login error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      
+      let errorMessage = 'Login failed. Please check your credentials.';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Invalid email or password';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (!error.response) {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      toast.error(errorMessage, {
         position: "top-center",
       });
+      
+      // Reset password untuk keamanan
+      setFormData(prev => ({ ...prev, password: '' }));
     } finally {
       setLoading(false);
     }
@@ -69,6 +102,13 @@ useEffect(() => {
       ...formData,
       [e.target.name]: e.target.value,
     });
+  };
+
+  // Tambahkan handler untuk Enter key
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !loading) {
+      handleSubmit(e);
+    }
   };
 
   return (
@@ -100,11 +140,12 @@ useEffect(() => {
                   type="email"
                   autoComplete="email"
                   required
-                  className="pl-10 input-field"
+                  className="pl-10 input-field w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                   placeholder="you@company.com"
                   value={formData.email}
                   onChange={handleChange}
                   disabled={loading}
+                  onKeyPress={handleKeyPress}
                 />
               </div>
             </div>
@@ -121,15 +162,16 @@ useEffect(() => {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
-                  className="pl-10 pr-10 input-field"
+                  className="pl-10 pr-10 input-field w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                   placeholder="Enter your password"
                   value={formData.password}
                   onChange={handleChange}
                   disabled={loading}
+                  onKeyPress={handleKeyPress}
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={loading}
                 >
@@ -146,7 +188,7 @@ useEffect(() => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full btn-primary py-3 text-base font-medium flex items-center justify-center"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
               >
                 {loading ? (
                   <>
@@ -173,23 +215,35 @@ useEffect(() => {
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setFormData({
-                  email: 'manager@smart.com',
-                  password: 'password123'
-                })}
+                onClick={() => {
+                  setFormData({
+                    email: 'manager@smart.com',
+                    password: 'password123'
+                  });
+                  toast.info('Manager account loaded. Click Sign in.', {
+                    position: "top-center",
+                    autoClose: 2000,
+                  });
+                }}
                 disabled={loading}
-                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
               >
                 Manager Account
               </button>
               <button
                 type="button"
-                onClick={() => setFormData({
-                  email: 'sales@smart.com',
-                  password: 'password123'
-                })}
+                onClick={() => {
+                  setFormData({
+                    email: 'sales@smart.com',
+                    password: 'password123'
+                  });
+                  toast.info('Sales account loaded. Click Sign in.', {
+                    position: "top-center",
+                    autoClose: 2000,
+                  });
+                }}
                 disabled={loading}
-                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
               >
                 Sales Account
               </button>
