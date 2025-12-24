@@ -12,7 +12,8 @@ import {
   Briefcase,
   UserCheck,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  BarChart3  // <- Tambahkan ini
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -400,7 +401,7 @@ export default function DashboardPage() {
         <div className="card bg-gradient-to-br from-purple-50 to-purple-100">
           <div className="flex items-center">
             <div className="p-3 rounded-lg bg-purple-500 bg-opacity-20">
-              <BarChart3 className="h-6 w-6 text-purple-600" />
+              <BarChart3 className="h-6 w-6 text-purple-600" /> {/* <-- Sekarang BarChart3 sudah diimport */}
             </div>
             <div className="ml-4">
               <h3 className="font-semibold text-gray-900">View Reports</h3>

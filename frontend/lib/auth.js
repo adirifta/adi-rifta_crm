@@ -4,43 +4,45 @@ export const isAuthenticated = () => {
   if (typeof window === 'undefined') return false;
   
   const token = localStorage.getItem('token');
-  console.log('Token from localStorage:', token ? 'Exists' : 'Null');
   
-  if (!token) return false;
+  if (!token) {
+    console.log('No token found');
+    return false;
+  }
 
   try {
     const decoded = jwtDecode(token);
     const currentTime = Date.now() / 1000;
-    console.log('Token expiry:', decoded.exp, 'Current time:', currentTime);
     
     if (decoded.exp < currentTime) {
       console.log('Token expired');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      clearAuthData();
       return false;
     }
     
-    console.log('User authenticated');
+    console.log('Token valid');
     return true;
   } catch (error) {
     console.error('Error decoding token:', error);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearAuthData();
     return false;
   }
+};
+
+export const clearAuthData = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
 };
 
 export const getUserRole = () => {
   if (typeof window === 'undefined') return null;
   
   const userStr = localStorage.getItem('user');
-  console.log('User data from localStorage:', userStr);
   
   if (!userStr) return null;
   
   try {
     const user = JSON.parse(userStr);
-    console.log('User role:', user.role);
     return user.role;
   } catch (error) {
     console.error('Error parsing user data:', error);

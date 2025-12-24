@@ -6,7 +6,7 @@ require('dotenv').config();
 
 // Import database
 const db = require('./config/database');
-const runMigrations = require('./config/migrate');
+const createTables = require('./config/migrate');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -28,7 +28,6 @@ const corsOptions = {
       'http://localhost:3000',
       'http://localhost:5000',
       'https://adi-rifta-crm.vercel.app',
-      'https://*.railway.app',
       process.env.FRONTEND_URL
     ].filter(Boolean);
     
@@ -141,8 +140,8 @@ async function initializeApp() {
     
     // Run migrations
     console.log('Running database migrations...');
-    await runMigrations();
-    console.log('Migrations completed');
+    const migrationResult = await createTables();
+    console.log('Migrations completed:', migrationResult.message);
     
     const PORT = process.env.PORT || 5000;
     

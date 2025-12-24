@@ -51,7 +51,7 @@ api.interceptors.response.use(
       localStorage.removeItem('user');
       
       // Only redirect if not already on login page
-      if (window.location.pathname !== '/login') {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
     }

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { authAPI } from '@/lib/api';
 import { toast } from 'react-toastify';
 import { Eye, EyeOff, Mail, Lock, Loader2 } from 'lucide-react';
-import { isAuthenticated } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,57 +15,29 @@ export default function LoginPage() {
     password: 'password123',
   });
 
-useEffect(() => {
-  const token = localStorage.getItem('token');
-  const user = localStorage.getItem('user');
-  
-  console.log('Login page - Token exists:', !!token, 'User exists:', !!user);
-  
-  if (token && user) {
-    try {
-      // Parse user untuk cek validitas JSON
-      JSON.parse(user);
-      console.log('Login page - Already logged in, redirecting to dashboard');
-      router.push('/dashboard');
-    } catch (error) {
-      console.log('Login page - Invalid user data, clearing storage');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-    }
-  }
-}, [router]);
-
   const handleSubmit = async (e) => {
   e.preventDefault();
   setLoading(true);
 
   try {
     const response = await authAPI.login(formData);
-    
-    console.log('Login successful:', response.data);
-    
-    // Simpan token dan user data
+
     localStorage.setItem('token', response.data.token);
     localStorage.setItem('user', JSON.stringify(response.data.user));
-    
-    // Trigger storage event untuk memberi tahu layout
-    window.dispatchEvent(new Event('storage'));
-    
-    toast.success('Login successful! Redirecting...', {
+
+    toast.success('Login successful!', {
       position: "top-center",
       autoClose: 1000,
     });
-    
-    // Redirect setelah toast
-    setTimeout(() => {
-      router.push('/dashboard');
-    }, 1000);
+
+    // Gunakan replace agar tidak bisa kembali ke login
+    router.replace('/dashboard');
     
   } catch (error) {
-    console.error('Login error:', error);
-    toast.error(error.response?.data?.error || 'Login failed. Please check your credentials.', {
-      position: "top-center",
-    });
+    toast.error(
+      error.response?.data?.error || 'Login failed',
+      { position: "top-center" }
+    );
   } finally {
     setLoading(false);
   }

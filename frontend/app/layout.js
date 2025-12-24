@@ -32,6 +32,8 @@ const navigation = [
   { name: 'Reports', href: '/reports', icon: BarChart3 },
 ];
 
+const PUBLIC_PAGES = ['/login', '/register', '/'];
+
 export default function RootLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userRole, setUserRole] = useState(null);
@@ -39,70 +41,66 @@ export default function RootLayout({ children }) {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [isAuth, setIsAuth] = useState(null); // Ubah ke null untuk state loading
+  const [isAuth, setIsAuth] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
 
+  // Cek auth status
   useEffect(() => {
+    console.log('Layout - Checking auth for pathname:', pathname);
+    
     const checkAuth = () => {
-      console.log('Layout - Checking authentication for path:', pathname);
       const authStatus = isAuthenticated();
       console.log('Layout - Auth status:', authStatus);
       
-      if (!authStatus) {
-        console.log('Layout - Not authenticated');
-        setIsAuth(false);
-        
-        // Hanya redirect jika bukan halaman login/register
-        if (!['/login', '/register'].includes(pathname)) {
-          console.log('Layout - Redirecting to login');
-          router.push('/login');
-        }
-        return;
+      setIsAuth(authStatus);
+      
+      if (authStatus) {
+        const role = getUserRole();
+        const userData = getUser();
+        console.log('Layout - User data loaded:', { role, userData });
+        setUserRole(role);
+        setUser(userData);
       }
       
-      console.log('Layout - User authenticated');
-      setIsAuth(true);
-      
-      // Load user data jika authenticated
-      const role = getUserRole();
-      const userData = getUser();
-      console.log('Layout - User role:', role, 'User data:', userData);
-      setUserRole(role);
-      setUser(userData);
-      
-      // Redirect jika di halaman login/register tapi sudah login
-      if (['/login', '/register'].includes(pathname)) {
-        console.log('Layout - Already logged in, redirecting to dashboard');
-        router.push('/dashboard');
-      }
+      setIsLoading(false);
     };
     
-    checkAuth();
-    
-    // Listen untuk storage changes (login/logout dari tab/window lain)
-    const handleStorageChange = () => {
+    // Cek langsung tanpa delay untuk halaman login
+    if (pathname === '/login') {
       checkAuth();
-    };
+    } else {
+      // Untuk halaman lain, cek dengan delay kecil
+      const timer = setTimeout(checkAuth, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [pathname]);
+
+  // Handle redirects berdasarkan auth status
+  useEffect(() => {
+    if (isLoading) return;
     
-    window.addEventListener('storage', handleStorageChange);
+    console.log('Layout - Redirect check:', { isAuth, pathname });
     
-    // Simulate notifications
-    setNotifications([
-      { id: 1, title: 'New lead assigned', message: 'You have been assigned a new lead', time: '2 min ago', read: false },
-      { id: 2, title: 'Project approved', message: 'Your project has been approved by manager', time: '1 hour ago', read: false },
-      { id: 3, title: 'Meeting reminder', message: 'Client meeting scheduled for tomorrow', time: '3 hours ago', read: true },
-    ]);
+    // Jika sudah authenticated tapi di halaman login/register
+    if (isAuth && (pathname === '/login' || pathname === '/register')) {
+      console.log('Layout - Redirecting authenticated user to /dashboard');
+      router.replace('/dashboard');
+      return;
+    }
     
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [pathname, router]);
+    // Jika tidak authenticated tapi bukan di halaman public
+    if (!isAuth && !PUBLIC_PAGES.includes(pathname)) {
+      console.log('Layout - Redirecting unauthenticated user to /login');
+      router.replace('/login');
+      return;
+    }
+  }, [isAuth, pathname, isLoading, router]);
 
   const handleLogout = () => {
     logout();
     toast.success('Logged out successfully');
-    router.push('/login');
   };
 
   const isActive = (href) => {
@@ -117,8 +115,8 @@ export default function RootLayout({ children }) {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Jika di halaman login/register, render tanpa layout
-  if (['/login', '/register'].includes(pathname)) {
+  // Jika di halaman public
+  if (PUBLIC_PAGES.includes(pathname)) {
     return (
       <html lang="en">
         <body>
@@ -129,22 +127,22 @@ export default function RootLayout({ children }) {
     );
   }
 
-  // Tampilkan loading selama pengecekan auth
-  if (isAuth === null) {
+  // Tampilkan loading selama pengecekan
+  if (isLoading || isAuth === null) {
     return (
       <html lang="en">
         <body className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading...</p>
+            <p className="mt-4 text-gray-600">Loading application...</p>
           </div>
         </body>
       </html>
     );
   }
 
-  // Jika tidak authenticated, redirect sudah dilakukan di useEffect
-  if (isAuth === false) {
+  // Jika tidak authenticated (seharusnya sudah di-redirect)
+  if (!isAuth) {
     return (
       <html lang="en">
         <body className="flex items-center justify-center min-h-screen">

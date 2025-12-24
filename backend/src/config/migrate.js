@@ -95,11 +95,23 @@ const createTables = async () => {
     `);
 
     console.log('Tables created successfully');
-    process.exit(0);
+    return { success: true, message: 'Tables ready' };
   } catch (error) {
     console.error('Error creating tables:', error);
-    process.exit(1);
+    throw error;
   }
 };
 
-createTables();
+if (require.main === module) {
+  createTables()
+    .then(() => {
+      console.log('Migration completed successfully');
+      process.exit(0);
+    })
+    .catch(error => {
+      console.error('Migration failed:', error);
+      process.exit(1);
+    });
+}
+
+module.exports = createTables;
